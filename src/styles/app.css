@@ -273,3 +273,5 @@ a { color: var(--text); }
 .section > .sh { white-space: nowrap; overflow: hidden; }
 .section > .sh > span { overflow: hidden; text-overflow: ellipsis; }
 .partcell.on .ppatch { color: var(--hi-text); opacity: 0.75; }
+.footer-link { color: var(--dim); text-decoration: none; letter-spacing: 0.06em; white-space: nowrap; }
+.footer-link:hover { color: var(--hi); text-decoration: underline; }

@@ -125,6 +125,9 @@ export const StatusBar = () => {
       <span>
         <span className="kbd">SPACE</span> play <span className="kbd">A–K</span> notes <span className="kbd">Z X</span> octave <span className="kbd">1–7 `</span> part
       </span>
+      <a className="footer-link" href="https://seditionlabs.com" target="_blank" rel="noopener noreferrer" data-info="Sedition Labs|Visit seditionlabs.com (opens in a new tab).">
+        SEDITIONLABS.COM
+      </a>
     </div>
   );
 };
