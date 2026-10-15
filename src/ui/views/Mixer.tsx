@@ -13,7 +13,7 @@ const Strip = ({ i }: { i: number }) => {
   const meter = useTransport((t) => t.meters[i]);
   const solo = useApp((s) => s.current.parts.every((q, k) => (k === i ? !q.mute : q.mute)));
   return (
-    <div className={`section`} style={{ width: 92, flexShrink: 0 }}>
+    <div className="section mixer-strip" style={{ width: 92, flexShrink: 0 }}>
       <div className="sh" style={sel ? { background: 'var(--hi)', color: 'var(--hi-text)' } : undefined} onClick={() => setState({ part: i })} data-info={`Part ${partName(i)}|Click to select.`}>
         <span style={{ fontSize: 12, fontWeight: 700 }}>{partName(i)}</span>
         <span className="grow" />
@@ -81,7 +81,7 @@ export const EffectsView = ({ compact }: { compact?: boolean }) => {
   const ef = (path: (string | number)[], v: unknown, key: string) => edit((p) => setIn(p, ['fx', ...path], v), key);
   return (
     <div className="col gap8">
-      <Section title="MULTI-EFFECT (EFX)" info={`EFX|${def.help}`} right={<span className="dim">{def.help}</span>}>
+      <Section title="MULTI-EFFECT (EFX)" info={`EFX|${def.help}`} right={<span className="dim hide-m">{def.help}</span>}>
         <div className="col gap8">
           <div className="row gap8 wrap">
             <Select value={fx.efx.type} options={EFX_DEFS.map((d) => ({ value: d.type, label: d.name }))} onChange={(t) => edit((p) => setIn(p, ['fx', 'efx'], { ...p.fx.efx, type: t, params: {} }), 'efxtype')} info="EFX type|Choose one of 25 multi-effects." />

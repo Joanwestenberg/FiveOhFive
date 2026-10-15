@@ -12,6 +12,7 @@ import { PAD_NOTES, DRUM_NOTE_NAMES } from '../../presets/kits';
 import { ARP_STYLES, BEAT_PATTERNS } from '../../presets/arp';
 import { noteName } from '../../model/notation';
 import { insertEvents } from '../../model/edit';
+import { useMobile } from '../useMobile';
 
 export const PartStrip = () => {
   const parts = useApp((s) => s.current.parts);
@@ -142,7 +143,7 @@ const DBeam = () => {
     { value: 'level', label: 'VOLUME' }, { value: 'reverb', label: 'REV SEND' }, { value: 'delay', label: 'DLY SEND' }, { value: 'off', label: 'OFF' },
   ];
   return (
-    <div className="col gap4" style={{ width: 76 }}>
+    <div className="col gap4 dbeam-col" style={{ width: 76 }}>
       <div ref={ref} className="dbeam grow" style={{ width: '100%', minHeight: 116 }} onPointerMove={move} onPointerLeave={leave} onPointerUp={leave} onPointerDown={move}
         data-info="D-Beam|Move the pointer over the beam to control the assigned parameter. Moving away returns it to normal.">
         <div className="lbl">D-BEAM</div>
@@ -192,6 +193,7 @@ const Pads = () => {
   const trPage = useApp((s) => s.trPage);
   const trNote = useApp((s) => s.trNote);
   const rpsActive = useTransport((t) => t.rpsActive);
+  const mobile = useMobile();
   const drumHits = useTransport((t) => t.drumHits);
   const tick = useTransport((t) => t.tick);
   const playing = useTransport((t) => t.playing);
@@ -280,36 +282,36 @@ const Pads = () => {
   };
 
   const drumOpts = cur.kit.insts.map((d) => ({ value: d.note, label: `${d.note} ${d.name}` }));
+  const controls = (
+    <div className="row gap4 wrap">
+      {mode === 'trrec' && (
+        <>
+          {part === 0 ? (
+            <Select value={trNote} options={drumOpts} onChange={(n) => setState({ trNote: n })} info="TR-REC instrument|Which drum the step pads write." />
+          ) : (
+            <Select value={trNote} options={Array.from({ length: 61 }, (_, k) => ({ value: 24 + k, label: noteName(24 + k) }))} onChange={(n) => setState({ trNote: n })} info="TR-REC note|Which note the step pads write on this part." />
+          )}
+          <Select value={trPage} options={Array.from({ length: cur.measures }, (_, k) => ({ value: k, label: `MEAS ${k + 1}` }))} onChange={(v) => setState({ trPage: v })} info="TR-REC measure|Which measure the 16 step pads show." />
+        </>
+      )}
+      {mode === 'megamix' && (
+        <Select value={megaSource ?? ''} options={[{ value: '', label: 'SOURCE…' }, ...allPatternIds().map((id) => ({ value: id, label: `${id} ${getPattern(id)?.name ?? ''}` }))]} onChange={(v) => setState({ megaSource: v || null })} info="Megamix source|Pattern whose parts the pads swap in." />
+      )}
+      <Seg<PadMode>
+        value={mode}
+        onChange={(m) => setState({ padMode: m, trNote: m === 'trrec' ? (part === 0 ? 36 : 48) : getState().trNote })}
+        options={[{ value: 'keyboard', label: mobile ? 'KEYS' : 'KEYBOARD' }, { value: 'trrec', label: 'TR-REC' }, { value: 'rps', label: 'RPS' }, { value: 'mute', label: mobile ? 'MUTE' : 'PART MUTE' }, { value: 'megamix', label: mobile ? 'MEGA' : 'MEGAMIX' }]}
+        info="Pad mode|KEYBOARD plays notes, TR-REC programs steps, RPS triggers phrases, PART MUTE mutes parts, MEGAMIX swaps in parts from another pattern."
+      />
+    </div>
+  );
+  // On a 4x4 phone grid, interleave the keyboard rows so each black-key row sits above its white keys.
+  const order = mobile && mode === 'keyboard' && part !== 0 ? [0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7, 12, 13, 14, 15] : Array.from({ length: 16 }, (_, k) => k);
   return (
-    <Section
-      title="PADS"
-      info="Pads|Sixteen velocity-sensitive pads. Their role depends on the pad mode."
-      right={
-        <div className="row gap4">
-          {mode === 'trrec' && (
-            <>
-              {part === 0 ? (
-                <Select value={trNote} options={drumOpts} onChange={(n) => setState({ trNote: n })} info="TR-REC instrument|Which drum the step pads write." />
-              ) : (
-                <Select value={trNote} options={Array.from({ length: 61 }, (_, k) => ({ value: 24 + k, label: noteName(24 + k) }))} onChange={(n) => setState({ trNote: n })} info="TR-REC note|Which note the step pads write on this part." />
-              )}
-              <Select value={trPage} options={Array.from({ length: cur.measures }, (_, k) => ({ value: k, label: `MEAS ${k + 1}` }))} onChange={(v) => setState({ trPage: v })} info="TR-REC measure|Which measure the 16 step pads show." />
-            </>
-          )}
-          {mode === 'megamix' && (
-            <Select value={megaSource ?? ''} options={[{ value: '', label: 'SOURCE…' }, ...allPatternIds().map((id) => ({ value: id, label: `${id} ${getPattern(id)?.name ?? ''}` }))]} onChange={(v) => setState({ megaSource: v || null })} info="Megamix source|Pattern whose parts the pads swap in." />
-          )}
-          <Seg<PadMode>
-            value={mode}
-            onChange={(m) => setState({ padMode: m, trNote: m === 'trrec' ? (part === 0 ? 36 : 48) : getState().trNote })}
-            options={[{ value: 'keyboard', label: 'KEYBOARD' }, { value: 'trrec', label: 'TR-REC' }, { value: 'rps', label: 'RPS' }, { value: 'mute', label: 'PART MUTE' }, { value: 'megamix', label: 'MEGAMIX' }]}
-            info="Pad mode|KEYBOARD plays notes, TR-REC programs steps, RPS triggers phrases, PART MUTE mutes parts, MEGAMIX swaps in parts from another pattern."
-          />
-        </div>
-      }
-    >
+    <Section title="PADS" info="Pads|Sixteen velocity-sensitive pads. Their role depends on the pad mode." right={mobile ? undefined : controls}>
+      {mobile && <div style={{ marginBottom: 6 }}>{controls}</div>}
       <div className="pads">
-        {Array.from({ length: 16 }, (_, i) => {
+        {order.map((i) => {
           const [cls, top, main] = label(i);
           return (
             <div
@@ -392,21 +394,40 @@ const PartMixMini = () => {
   );
 };
 
-export const PerformView = () => (
-  <div className="col gap8">
-    <PartStrip />
-    <div className="row gap8" style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
-      <RealtimeKnobs />
-      <PartMixMini />
-    </div>
-    <EffectKnobs />
-    <div className="row gap8" style={{ alignItems: 'stretch' }}>
-      <div className="col gap8 grow">
+export const PerformView = () => {
+  const mobile = useMobile();
+  if (mobile)
+    // phones: the pads are the instrument, so they come first
+    return (
+      <div className="col gap8 perform-m">
+        <PartStrip />
         <Pads />
+        <RealtimeKnobs />
+        <PartMixMini />
+        <EffectKnobs />
+        <div className="row gap8 perform-bottom" style={{ alignItems: 'stretch' }}>
+          <DBeam />
+          <ArpBlock />
+        </div>
         <Scope />
       </div>
-      <DBeam />
-      <ArpBlock />
+    );
+  return (
+    <div className="col gap8">
+      <PartStrip />
+      <div className="row gap8" style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <RealtimeKnobs />
+        <PartMixMini />
+      </div>
+      <EffectKnobs />
+      <div className="row gap8 perform-bottom" style={{ alignItems: 'stretch' }}>
+        <div className="col gap8 grow">
+          <Pads />
+          <Scope />
+        </div>
+        <DBeam />
+        <ArpBlock />
+      </div>
     </div>
-  </div>
-);
+  );
+};

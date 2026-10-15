@@ -15,6 +15,8 @@ import {
   useApp, setState, getState, loadProject, startAudio, togglePlay, noteOn, noteOff, undo, redo, toggleRec, type ViewId,
 } from '../store/store';
 import { initMidi } from '../midi/webmidi';
+import { useMobile } from './useMobile';
+import { BottomNav, MoreSheet, Backdrop } from './Mobile';
 import { PAD_NOTES } from '../presets/kits';
 
 const VIEWS: { id: ViewId; label: string; help: string }[] = [
@@ -85,7 +87,17 @@ const useKeyboard = () => {
 export const App = () => {
   const view = useApp((s) => s.view);
   const asst = useApp((s) => s.assistantOpen);
+  const drawer = useApp((s) => s.drawer);
+  const mobile = useMobile();
   useKeyboard();
+  // each view starts at the top
+  useEffect(() => {
+    document.querySelector('.view')?.scrollTo(0, 0);
+  }, [view]);
+  // leaving phone layout closes any phone-only drawer
+  useEffect(() => {
+    if (!mobile && getState().drawer !== 'none') setState({ drawer: 'none' });
+  }, [mobile]);
   useEffect(() => {
     const off = installInfoListener();
     void loadProject();
@@ -98,17 +110,17 @@ export const App = () => {
     };
   }, []);
   return (
-    <div className="app">
+    <div className={`app${mobile ? ' mobile' : ''}${drawer === 'browse' ? ' drawer-open' : ''}`}>
       <ControlBar />
       <Browser />
       <main className="main">
-        <nav className="tabs">
+        {!mobile && <nav className="tabs">
           {VIEWS.map((v) => (
             <button key={v.id} type="button" className={`tab${view === v.id ? ' on' : ''}`} onClick={() => setState({ view: v.id })} data-info={`${v.label}|${v.help}`}>
               {v.label}
             </button>
           ))}
-        </nav>
+        </nav>}
         <div className="view">
           {view === 'perform' && <PerformView />}
           {view === 'sequencer' && <SequencerView />}
@@ -122,8 +134,11 @@ export const App = () => {
         </div>
       </main>
       {asst && <Assistant />}
-      <InfoView />
+      {!mobile && <InfoView />}
       <StatusBar />
+      {mobile && <BottomNav />}
+      {mobile && <Backdrop />}
+      {mobile && <MoreSheet />}
       <AudioSplash />
     </div>
   );

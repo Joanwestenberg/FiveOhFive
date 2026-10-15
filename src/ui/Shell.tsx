@@ -1,6 +1,8 @@
 import { Icon } from './icons';
 import { Btn, NumBox, Select, Meter } from './widgets/widgets';
 import { useInfo } from './info';
+import { useMobile } from './useMobile';
+import { useEffect, useState } from 'react';
 import {
   useApp, useTransport, togglePlay, stop, toggleRec, setTempo, tapTempo, undo, redo, setState, setLength, startAudio,
   panic, getState, loadPattern, allPatternIds, getPattern, play, setErase,
@@ -51,9 +53,9 @@ export const ControlBar = () => {
   return (
     <div className="controlbar">
       <div className="logo" data-info="FiveOhFive|A browser groovebox modelled on the MC-505: 8 parts, pattern sequencer, RPS, arpeggiator, Megamix and effects.">
-        <span className="mark"><i /><i /><i /><i /></span>FIVEOHFIVE
+        <span className="mark"><i /><i /><i /><i /></span><span className="hide-m">FIVEOHFIVE</span>
       </div>
-      <div className="sep" />
+      <div className="sep hide-m" />
       <Btn className="big icon" info="Stop|Stops the sequencer. Shift-click for a turntable-style slow-down stop." onClick={(e) => stop(e.shiftKey)} title="Stop">{Icon.stop}</Btn>
       <Btn className="big icon" on={playing} info="Play|Starts the pattern from the top. Space also toggles play." onClick={() => (playing ? stop() : play())} title="Play">{Icon.play}</Btn>
       <Btn className={`big icon${recArmed && !recording ? ' blink' : ''}`} on={recording} info="Record|Arms realtime recording on the selected part. Notes and knob moves you play are recorded while the pattern loops." onClick={toggleRec} title="Record">{Icon.rec}</Btn>
@@ -62,8 +64,10 @@ export const ControlBar = () => {
         onPointerDown={(e) => { (e.currentTarget as Element).setPointerCapture(e.pointerId); setErase(true); }}
         onPointerUp={() => setErase(false)}
         style={{ height: 26 }}
+        className="hide-m"
       >ERASE</Btn>
-      <div className="lcd" style={{ minWidth: 268 }}>
+      <div className="cb-lcd row gap4">
+      <div className="lcd" style={{ minWidth: 0, flex: 1 }}>
         <Position />
         <span className="dim">|</span>
         <span data-info="Pattern|The pattern being played and edited. An asterisk marks unsaved changes to a preset.">{cur.id} {cur.name}{getState().project.edits[cur.id] ? '*' : ''}</span>
@@ -72,10 +76,12 @@ export const ControlBar = () => {
       </div>
       <Btn className="icon" info="Previous pattern|Selects the previous pattern. While playing it switches at the end of the current pattern." onClick={() => step(-1)}>{Icon.prev}</Btn>
       <Btn className="icon" info="Next pattern|Selects the next pattern. While playing it switches at the end of the current pattern." onClick={() => step(1)}>{Icon.next}</Btn>
-      <div className="sep" />
+      </div>
+      <div className="sep hide-m" />
       <span className="label">BPM</span>
       <NumBox value={cur.tempo} min={20} max={300} step={0.1} width={52} fmt={(v) => v.toFixed(1)} onChange={setTempo} info="Tempo|Pattern tempo in beats per minute. Drag, or double-click to type." />
       <Btn info="Tap tempo|Tap three or more times in time to set the tempo." onClick={tapTempo}>TAP</Btn>
+      <span className="hide-m row gap4">
       <span className="label">MEAS</span>
       <NumBox value={cur.measures} min={1} max={32} width={34} onChange={(v) => setLength(v)} info="Measures|Pattern length in measures (1-32). Lengthening loops the existing phrase to fill the new bars." />
       <Select
@@ -87,7 +93,9 @@ export const ControlBar = () => {
       <div className="sep" />
       <Btn className="icon" disabled={!canUndo} info="Undo|Undo the last edit (Ctrl+Z)." onClick={undo}>{Icon.undo}</Btn>
       <Btn className="icon" disabled={!canRedo} info="Redo|Redo (Ctrl+Shift+Z)." onClick={redo}>{Icon.redo}</Btn>
+      </span>
       <span className="grow" />
+      <span className="hide-m row gap4">
       <span className="label num" data-info="Voices|Voices currently sounding (64 synth voices plus 40 drum voices).">{voices} VOX</span>
       <div className="row gap2" data-info="Master level|Peak output level, left and right.">
         <Meter value={master[0]} style={{ width: 4, height: 18 }} />
@@ -96,8 +104,9 @@ export const ControlBar = () => {
       <Btn on={audioState === 'on'} className="icon" info="Audio engine|Starts the audio engine. Browsers need a click before they allow sound." onClick={() => void startAudio()}>{Icon.speaker}</Btn>
       <Btn className="icon" info="Panic|Silences every voice immediately." onClick={panic}>{Icon.panic}</Btn>
       <Btn className="icon" info="Theme|Switch between the dark and light greyscale themes." onClick={() => setState({ theme: theme === 'dark' ? 'light' : 'dark' })}>{theme === 'dark' ? Icon.sun : Icon.moon}</Btn>
+      </span>
       <Btn on={asst} info="Assistant|Opens the AI assistant. Bring your own Anthropic API key; it can write patterns and tweak sounds for you." onClick={() => setState({ assistantOpen: !asst })}>
-        {Icon.spark} ASSIST
+        {Icon.spark}<span className="hide-m">ASSIST</span>
       </Btn>
     </div>
   );
@@ -117,12 +126,19 @@ export const StatusBar = () => {
   const msg = useApp((s) => s.status);
   const audioState = useApp((s) => s.audio);
   const midiIn = useApp((s) => s.project.system.midi.inputId);
+  const mobile = useMobile();
+  const info = useInfo();
+  // On phones there is no Info View, so the footer shows whichever changed last: a tapped control's help or the status.
+  const [latest, setLatest] = useState<'status' | 'info'>('status');
+  useEffect(() => setLatest('info'), [info]);
+  useEffect(() => setLatest('status'), [msg]);
+  const text = mobile && latest === 'info' ? `${info.t} · ${info.h}` : msg;
   return (
     <div className="statusbar">
-      <span className="msg">{msg}</span>
-      <span>MIDI IN: {midiIn || 'ALL'}</span>
-      <span>AUDIO: {audioState.toUpperCase()}</span>
-      <span>
+      <span className="msg">{text}</span>
+      <span className="hide-m">MIDI IN: {midiIn || 'ALL'}</span>
+      <span className="hide-m">AUDIO: {audioState.toUpperCase()}</span>
+      <span className="hide-m">
         <span className="kbd">SPACE</span> play <span className="kbd">A–K</span> notes <span className="kbd">Z X</span> octave <span className="kbd">1–7 `</span> part
       </span>
       <a className="footer-link" href="https://seditionlabs.com" target="_blank" rel="noopener noreferrer" data-info="Sedition Labs|Visit seditionlabs.com (opens in a new tab).">
@@ -134,12 +150,13 @@ export const StatusBar = () => {
 
 export const AudioSplash = () => {
   const a = useApp((s) => s.audio);
+  const mobile = useMobile();
   if (a === 'on') return null;
   return (
     <div className="splash">
       <div className="card" data-info="Start audio|Browsers only allow sound after you interact with the page.">
         <div className="heading">FIVEOHFIVE</div>
-        <div>A groovebox in your browser. Pick a pattern on the left, press play, and twist the knobs.</div>
+        <div>{mobile ? 'A groovebox in your pocket. Pick a pattern under Browse, press play, and twist the knobs.' : 'A groovebox in your browser. Pick a pattern on the left, press play, and twist the knobs.'}</div>
         <div className="row">
           <Btn className="big" on onClick={() => void startAudio().then(() => togglePlay())}>{Icon.play} START AUDIO AND PLAY</Btn>
           <Btn className="big" onClick={() => void startAudio()}>START AUDIO</Btn>

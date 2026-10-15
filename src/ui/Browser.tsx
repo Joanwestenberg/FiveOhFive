@@ -74,7 +74,7 @@ const PatternList = ({ q }: { q: string }) => {
       key={id}
       className={`li${id === cur ? ' on' : ''}`}
       style={queued === id ? { outline: '1px dashed var(--dim)', outlineOffset: -2 } : undefined}
-      onClick={() => loadPattern(id)}
+      onClick={() => { loadPattern(id); setState({ drawer: 'none' }); }}
       onContextMenu={(e) => {
         e.preventDefault();
         const items: MenuItem[] = [
@@ -133,7 +133,7 @@ const PatchList = ({ q }: { q: string }) => {
     setPatch(target, p, user ? `U:${p.name}` : p.name);
   };
   const row = (p: (typeof PRESET_PATCHES)[number], user = false) => (
-    <div key={(user ? 'u' : 'p') + p.name} className={`li${ref === (user ? `U:${p.name}` : p.name) ? ' on' : ''}`} onClick={() => pick(p, user)} data-info={`${p.name}|Click to load this patch into part ${part === 0 ? 1 : part}. Play the keyboard (A–K) to audition.`}>
+    <div key={(user ? 'u' : 'p') + p.name} className={`li${ref === (user ? `U:${p.name}` : p.name) ? ' on' : ''}`} onClick={() => { pick(p, user); setState({ drawer: 'none' }); }} data-info={`${p.name}|Click to load this patch into part ${part === 0 ? 1 : part}. Play the keyboard (A–K) to audition.`}>
       <span className="name">{p.name}</span>
       <span className="faint">{p.tones[0].wave.toUpperCase()}</span>
     </div>
@@ -159,7 +159,7 @@ const KitList = ({ q }: { q: string }) => {
   const ref = useApp((s) => s.current.kitRef);
   const userKits = useApp((s) => s.project.userKits);
   const row = (k: (typeof PRESET_KITS)[number], user = false) => (
-    <div key={(user ? 'u' : 'p') + k.name} className={`li${ref === (user ? `U:${k.name}` : k.name) ? ' on' : ''}`} onClick={() => { setKit(k, user ? `U:${k.name}` : k.name); setState({ part: 0 }); }} data-info={`${k.name}|Click to load this rhythm set into the rhythm part (R).`}>
+    <div key={(user ? 'u' : 'p') + k.name} className={`li${ref === (user ? `U:${k.name}` : k.name) ? ' on' : ''}`} onClick={() => { setKit(k, user ? `U:${k.name}` : k.name); setState({ part: 0, drawer: 'none' }); }} data-info={`${k.name}|Click to load this rhythm set into the rhythm part (R).`}>
       <span className="name">{k.name}</span>
       <span className="faint">{k.category}</span>
     </div>
@@ -177,7 +177,7 @@ const SongList = ({ q }: { q: string }) => {
   return (
     <div className="list">
       {songs.filter((s) => match(q, s.name)).map((s) => (
-        <div key={s.id} className="li" onClick={() => setState({ view: 'song' })} data-info={`${s.name}|Open the song editor.`}>
+        <div key={s.id} className="li" onClick={() => setState({ view: 'song', drawer: 'none' })} data-info={`${s.name}|Open the song editor.`}>
           <span className="num faint">{s.id}</span>
           <span className="name">{s.name}</span>
           <span className="dim">{s.steps.length} steps</span>
