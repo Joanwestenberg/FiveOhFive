@@ -186,6 +186,24 @@ const PianoRoll = ({ part, pattern, snap, sel, setSel, zoom }: RollProps) => {
     }
   }, [track, totalW, pxPerTick, sel, gutter, snap]);
 
+  // On touch, a drag that starts on a note edits it; anywhere else it scrolls the roll.
+  const hitRef = useRef<(x: number, y: number) => unknown>(() => null);
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const onTouch = (ev: TouchEvent) => {
+      const t = ev.touches[0];
+      if (!t || ev.touches.length > 1) return;
+      const r = c.getBoundingClientRect();
+      const x = t.clientX - r.left;
+      const y = t.clientY - r.top;
+      edgePx.current = 14;
+      if (x >= gutter && hitRef.current(x, y)) ev.preventDefault();
+    };
+    c.addEventListener('touchstart', onTouch, { passive: false });
+    return () => c.removeEventListener('touchstart', onTouch);
+  }, [gutter]);
+
   // playhead
   const headRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -216,6 +234,7 @@ const PianoRoll = ({ part, pattern, snap, sel, setSel, zoom }: RollProps) => {
 
   // read the track at event time so fast successive gestures never act on a stale render
   const liveTrack = () => getState().current.tracks[part];
+  const edgePx = useRef(5);
   const hit = (x: number, y: number): { ev: NoteEv; edge: boolean } | null => {
     const track = liveTrack();
     const r = Math.floor(y / ROW_H);
@@ -226,10 +245,11 @@ const PianoRoll = ({ part, pattern, snap, sel, setSel, zoom }: RollProps) => {
       if (e.k !== 'n' || e.n !== note) continue;
       const x0 = xOf(e.t);
       const w = Math.max(4, (isDrum ? Math.min(e.g, snap) : e.g) * pxPerTick);
-      if (x >= x0 && x <= x0 + w) return { ev: e, edge: !isDrum && x >= x0 + w - 5 };
+      if (x >= x0 && x <= x0 + w) return { ev: e, edge: !isDrum && x >= x0 + w - edgePx.current };
     }
     return null;
   };
+  hitRef.current = hit;
   const tickAt = (x: number) => Math.max(0, Math.min(len - 1, (x - gutter) / pxPerTick));
   const commit = (evs: SeqEv[], key = 'roll') => edit((p) => setIn(p, ['tracks', part], sortEvs(evs)), key);
   const audition = (n: number, v = 100) => {
@@ -242,13 +262,30 @@ const PianoRoll = ({ part, pattern, snap, sel, setSel, zoom }: RollProps) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    const touch = e.pointerType === 'touch';
+    edgePx.current = touch ? 14 : 5;
     if (x < gutter) {
       const r = rows[Math.floor(y / ROW_H)];
       if (r) audition(r.note);
       return;
     }
-    e.currentTarget.setPointerCapture(e.pointerId);
     const h = hit(x, y);
+    if (touch) {
+      if (!h) {
+        // Empty space on a touchscreen: let the finger scroll the roll; a tap without movement adds a note on release.
+        pendingTap.current = { x, y };
+        return;
+      }
+      // double-tap a note to delete it
+      const now = performance.now();
+      if (lastTap.current && lastTap.current.ev === h.ev && now - lastTap.current.t < 350) {
+        lastTap.current = null;
+        commit(track.filter((ev) => ev !== h.ev), '');
+        return;
+      }
+      lastTap.current = { ev: h.ev, t: now };
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
     if (h && (e.button === 2 || e.altKey)) {
       commit(track.filter((ev) => ev !== h.ev), '');
       return;
@@ -270,7 +307,11 @@ const PianoRoll = ({ part, pattern, snap, sel, setSel, zoom }: RollProps) => {
       drag.current = { kind: 'band', x0: x, y0: y, t0: 0, n0: 0, orig: track, picked: [] };
       return;
     }
-    // create
+    createAt(x, y, true);
+  };
+
+  const createAt = (x: number, y: number, dragToLength: boolean) => {
+    const track = liveTrack();
     const r = rows[Math.floor(y / ROW_H)];
     if (!r) return;
     const t = Math.floor(tickAt(x) / snap) * snap;
@@ -280,7 +321,15 @@ const PianoRoll = ({ part, pattern, snap, sel, setSel, zoom }: RollProps) => {
     commit(next, '');
     setSel(new Set([ne]));
     audition(r.note);
-    drag.current = { kind: 'create', x0: x, y0: y, t0: t, n0: r.note, orig: next, picked: [ne] };
+    if (dragToLength) drag.current = { kind: 'create', x0: x, y0: y, t0: t, n0: r.note, orig: next, picked: [ne] };
+  };
+
+  const pendingTap = useRef<{ x: number; y: number } | null>(null);
+  const lastTap = useRef<{ ev: SeqEv; t: number } | null>(null);
+  const onCancel = () => {
+    pendingTap.current = null;
+    drag.current = null;
+    setBand(null);
   };
 
   const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -319,7 +368,14 @@ const PianoRoll = ({ part, pattern, snap, sel, setSel, zoom }: RollProps) => {
     }
   };
 
-  const onUp = () => {
+  const onUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const tap = pendingTap.current;
+    pendingTap.current = null;
+    if (tap) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (Math.hypot(e.clientX - rect.left - tap.x, e.clientY - rect.top - tap.y) < 8) createAt(tap.x, tap.y, false);
+      return;
+    }
     const d = drag.current;
     drag.current = null;
     const track = liveTrack();
@@ -362,13 +418,13 @@ const PianoRoll = ({ part, pattern, snap, sel, setSel, zoom }: RollProps) => {
       <div ref={scrollRef} className="canvas-wrap" style={{ flex: 1, overflow: 'auto', minHeight: 200, position: 'relative' }} onContextMenu={(e) => e.preventDefault()}
         data-info="Piano roll|Click to add a note, drag to move, drag the right edge to resize, right-click or Alt-click to delete, Shift-drag to select. Click the left gutter to audition.">
         <div style={{ position: 'relative', width: totalW, height: totalH }}>
-          <canvas ref={canvasRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
+          <canvas ref={canvasRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel} />
           <div ref={headRef} style={{ position: 'absolute', top: 0, left: 0, width: 1, height: totalH, background: 'var(--hi)', pointerEvents: 'none' }} />
           {band && <div style={{ position: 'absolute', left: band.x, top: band.y, width: band.w, height: band.h, border: '1px dashed var(--hi)', pointerEvents: 'none' }} />}
         </div>
       </div>
       <div className="canvas-wrap" style={{ overflowX: 'hidden', borderTop: 0 }} data-info="Velocity|Drag up and down across notes to draw their velocities. With notes selected, only those change.">
-        <canvas ref={velRef} onPointerDown={onVel} onPointerMove={onVel} onPointerUp={() => (drag.current = null)} />
+        <canvas ref={velRef} style={{ touchAction: "none" }} onPointerDown={onVel} onPointerMove={onVel} onPointerUp={() => (drag.current = null)} />
       </div>
     </div>
   );
@@ -536,7 +592,7 @@ const Tools = ({ part, pattern, sel, setSel }: { part: number; pattern: Pattern;
     setState({ status: `${label} applied to ${sel.size ? `${sel.size} selected events` : `part ${partName(part)}`}.` });
   };
   return (
-    <div className="row wrap" style={{ gap: 8, alignItems: 'flex-start' }}>
+    <div className="row wrap seq-tools" style={{ gap: 8, alignItems: 'flex-start' }}>
       <Section title="QUANTIZE" info="Quantize|Moves notes to the grid. Works on the selection, or the whole part when nothing is selected.">
         <div className="col gap4">
           <div className="row gap4">

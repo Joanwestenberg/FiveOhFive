@@ -53,6 +53,7 @@ export interface AppState {
   loaded: boolean;
   trPage: number;
   trNote: number;
+  drawer: 'none' | 'browse' | 'more';
 }
 
 export const USER_SLOTS = 200;
@@ -110,7 +111,8 @@ let state: AppState = {
   status: 'Ready. Click anywhere or press Space to start audio.',
   audio: 'off',
   recArmed: false,
-  assistantOpen: lsGet('assistantOpen', '1') === '1',
+  // on phones the assistant is a full-screen sheet, so start closed there
+  assistantOpen: lsGet('assistantOpen', '1') === '1' && !(typeof matchMedia !== 'undefined' && matchMedia('(max-width: 760px)').matches),
   browserTab: 'patterns',
   theme: (lsGet('theme', 'dark') as 'dark' | 'light'),
   canUndo: false,
@@ -118,6 +120,7 @@ let state: AppState = {
   loaded: false,
   trPage: 0,
   trNote: 36,
+  drawer: 'none',
 };
 const listeners = new Set<() => void>();
 export const getState = () => state;

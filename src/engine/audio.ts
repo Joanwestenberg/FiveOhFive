@@ -27,6 +27,9 @@ export class AudioBridge {
   start(): Promise<void> {
     if (this.starting) return this.starting;
     this.starting = (async () => {
+      // iOS mutes Web Audio under the silent switch unless the session is "playback"
+      const nav = navigator as Navigator & { audioSession?: { type: string } };
+      if (nav.audioSession) nav.audioSession.type = 'playback';
       const ctx = new AudioContext({ latencyHint: 'interactive' });
       this.ctx = ctx;
       await ctx.audioWorklet.addModule(workletUrl);

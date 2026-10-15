@@ -1,7 +1,10 @@
 // Info View plumbing: any element with data-info="Title|Help" describes itself on hover.
 import { useSyncExternalStore } from 'react';
 
-const DEFAULT = { t: 'FiveOhFive', h: 'Hover any control to see what it does. Space plays and stops; the computer keyboard plays notes (A–K, W E T Y U for sharps, Z/X for octave).' };
+const touch = typeof matchMedia !== 'undefined' && matchMedia('(hover: none)').matches;
+const DEFAULT = touch
+  ? { t: 'FiveOhFive', h: 'Tap any control to see what it does. Drag knobs up and down.' }
+  : { t: 'FiveOhFive', h: 'Hover any control to see what it does. Space plays and stops; the computer keyboard plays notes (A–K, W E T Y U for sharps, Z/X for octave).' };
 let info = DEFAULT;
 const ls = new Set<() => void>();
 export const setInfo = (t: string, h = '') => {
