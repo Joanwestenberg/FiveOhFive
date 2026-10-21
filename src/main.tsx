@@ -1,7 +1,10 @@
+import { inject } from '@vercel/analytics';
 import { createRoot } from 'react-dom/client';
 import './styles/app.css';
 import { App } from './ui/App';
 import { getState, getTransport } from './store/store';
+
+inject();
 
 document.documentElement.dataset.theme = getState().theme;
 createRoot(document.getElementById('root')!).render(<App />);
